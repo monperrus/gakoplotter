@@ -26,6 +26,7 @@ import os
 import sys
 import socket
 import importlib
+import argparse
 
 
 def gcode2dict(filename):
@@ -190,10 +191,23 @@ def init():
     d_internal(["G21", "G17", "G90", "F2000", "G00 X0 Y0", "G00 Z0"])
 
 
-try:
-    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    s.connect("/tmp/tio-socket0")
-except: pass
+
+s = None
+
+def connect(address):
+    global s
+    try:
+        if ":" in address and not address.startswith("/"):
+             host, port = address.split(":")
+             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+             s.connect((host, int(port)))
+        else:
+             s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+             s.connect(address)
+        print(f"Connected to {address}")
+    except Exception as e:
+        print(f"Failed to connect to {address}: {e}")
+        s = None
 
 def d_internal(ls): 
     global draw,linewidth,image, state
@@ -205,10 +219,23 @@ def d_internal(ls):
     # send to socket
     # test with nc -lU /tmp/tio-socket0
     # tio --socket unix:/tmp/tio-socket0 /dev/ttyACM0
-    try:
-        s.send(("\n".join(ls)+"\n").encode("utf-8"))
-    except Exception as e:
-        print(e)
+    global s
+    response = None
+    if s:
+        try:
+            s.send(("\n".join(ls)+"\n").encode("utf-8"))
+            s.settimeout(1.0)
+            try:
+                response = s.recv(4096).decode("utf-8").strip()
+                if response:
+                    print(f"Response: {response}")
+            except socket.timeout:
+                pass
+            except Exception as e:
+                print(f"Read error: {e}")
+        except Exception as e:
+            print(f"Socket error: {e}")
+    return response
         
 
 def d(s):
@@ -233,6 +260,22 @@ def m(x,y):
 
 def l(x,y):
     d_internal(["G0 Z5", "G01 X"+str(x)+ " Y"+str(y), "G0 Z0"])
+
+def query_position():
+    """Query the current position using ? g-code command.
+    
+    Returns the machine position (x, y, z) parsed from the response.
+    """
+    response = d_internal(["?"])
+    if response:
+        # Example GRBL response: <Idle|WPos:0.000,0.000,0.000|Bf:15,128|FS:0,0>
+        # or <Idle|MPos:0.000,0.000,0.000|Bf:15,128|FS:0,0|WCO:0.000,0.000,0.000>
+        match = re.search(r'[WM]Pos:([-.\d]+),([-.\d]+),([-.\d]+)', response)
+        if match:
+            x, y, z = map(float, match.groups())
+            print(f"Parsed Position: X={x}, Y={y}, Z={z}")
+            return x, y, z
+    return None
 
 def r():
     global live_plotter
@@ -282,5 +325,12 @@ def repl():
 def foo():
     print("s")
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--socket", help="Socket address (host:port or path)")
+    args, unknown = parser.parse_known_args()
+    
+    if args.socket:
+        connect(args.socket)
+
     repl()
     # plotFile(sys.argv[1])
