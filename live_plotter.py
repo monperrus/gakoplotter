@@ -113,7 +113,7 @@ def dict2image_internal(gCodeDict, draw, linewidth, posX, posY,posZ,i,j,k,g):
     if maxZ-minZ == 0: scalerZcolor = 1
     elif maxZ-minZ > 0: scalerZcolor = 255/(maxZ-minZ)/scaler
     else: scalerZcolor = 255/(minZ-maxZ)/scaler
-    print("scalerZcolor",scalerZcolor, maxZ,minZ)
+    # print("scalerZcolor",scalerZcolor, maxZ,minZ)
     scalerZcolor = 51
 
     for l in  gCodeDict:
@@ -224,6 +224,7 @@ def d_internal(ls):
     response = None
     if s:
         try:
+            # print(f"; Sending to socket:\n{''.join(ls)}")
             s.send(("\n".join(ls)+"\n").encode("utf-8"))
             s.settimeout(1.0)
             try:
@@ -267,6 +268,7 @@ def query_position():
     
     Returns the machine position (x, y, z) parsed from the response.
     """
+    print("? ; Query current position")
     response = d_internal(["?"])
     if response:
         # Example GRBL response: <Idle|WPos:0.000,0.000,0.000|Bf:15,128|FS:0,0>
