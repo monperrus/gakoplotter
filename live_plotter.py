@@ -127,7 +127,7 @@ def dict2image_internal(gCodeDict, draw, linewidth, posX, posY,posZ,i,j,k,g):
             #elif key in dictScaler:
                 #l[key]= value * scaler
         if l.get('X', None) != None or l.get('Y', None) != None or l.get('Z', None) != None or l.get('I', None) != None or l.get('J', None) != None or l.get('K', None) != None:
-            print(l)
+            # print(l)
             if l.get('X', None) == None: l["X"]= posX
             if l.get('Y', None) == None: l["Y"]= posY
             if l.get('Z', None) == None: l["Z"]= posZ
@@ -355,6 +355,9 @@ def repl():
             if stmt.strip() == "?":
                 query_position()
                 continue
+            if stmt.strip() == "0":
+                m(0,0)
+                continue
             if stmt.strip():
                 if "(" not in stmt and ")" not in stmt:
                     stmt += "()"
@@ -362,6 +365,10 @@ def repl():
                 # Save history after each successful command
                 readline.set_history_length(1000)
                 readline.write_history_file(history_file)
+        except KeyboardInterrupt:
+            print("\nCtrl-C received, sending G0X0Y0...")
+            d("G0X0Y0")
+            break
         except EOFError:
             break
         except Exception as e:
@@ -371,9 +378,9 @@ def foo():
     print("s")
 
 def laser_test():
-    laser_on(600)
+    laser_on(800)
     # 10 it warms up
-    for i in range(8,4,-1):
+    for i in range(7,2,-1):
         speed = 100 + i * 50  # Variable speed from 100 to 550
         d(f"F{speed}")
         size = 10
