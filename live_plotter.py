@@ -32,8 +32,7 @@ import rlcompleter
 import traceback
 import time
 import statistics
-import matplotlib.pyplot as plt
-
+import random
 
 def gcode2dict(filename):
     return gcode2dict_internal(open(filename,"r").readlines())
@@ -460,15 +459,20 @@ def laser_test():
     laser_off()
 
 def clock_test():
+    """
+    python -c "from live_plotter import clock_test; clock_test()" 
+    """
+
     connect("/tmp/tio-socket0")
     init()
+    laser_on(800)
     before = time.time()
-    clock3(60)
+    clock2()
     after = time.time()
     print(f"Total time: {after - before:.2f} seconds")
     m(0,0)
 
-def clock2(zvalue=7):
+def clock2(zvalue=0):
     """
     draw one spot per second with just pen down
 
@@ -478,40 +482,102 @@ def clock2(zvalue=7):
 
     python -c "from live_plotter import clock2; clock2()" | gcode-cli -
     """
-    num_spots = 25
+    num_spots = 20
     spot_duration = 1  # seconds per spot
     
-    # Fast movement speed between spots
-    rapid_speed = 5000
-    
-    distance = 10
+    distance = 2
     for i in range(num_spots):
         # Position for this spot (arrange in a row)
         x_offset = i * distance  # 10mm spacing between spots
         y_offset = 0
         
         # Move quickly to position (pen up)
-        d(f"F{rapid_speed}")
         m(x_offset, y_offset)
         
         # Pen down for the spot
         d(f"G0 Z{zvalue}")
-        
+
+        # or laser on for the spot
+        # d(f"G1")        
         # Wait for 1 second
-        d(f"G4 P.46")  # Dwell for 1 second (P is in seconds for most controllers)
+        # d(f"G4 P.2")  # Dwell for 1 second (P is in seconds for most controllers)
         # time.sleep(spot_duration)
         
         # Pen up
         d("G0 Z0")
     
     # Return to origin at fast speed
-    d(f"F{rapid_speed}")
+    m(0, 0)
+
+def laser_figure_points(zvalue=0):
+    """
+    draw one spot per second with just pen down
+
+    draw ten spots in total
+
+    between spots, move as fast as possible to the next position, and then draw the next spot at the specified speed.
+
+    
+    """
+    init()
+    laser_on(800)
+    num_spots = 23
+    spot_duration = 1  # seconds per spot
+    
+
+    y = 0
+    distance = 5
+    dwells = [0.005,0.01, 0.02, 0.05, 0.1, 0.4, 1]  # Example dwell times
+    for _ in range(0, 20):
+        # min distance 2    
+        y = y + random.randint(0, 1000) % distance + 1.9
+        # dwell_time = dwells[int(y) % len(dwells)]  # Randomly select a dwell time from the list
+        for i in range(num_spots):
+            # Position for this spot (arrange in a row)
+            x_offset = i * distance  # 10mm spacing between spots
+            y_offset = y
+            
+            # Move quickly to position (pen up)
+            m(x_offset, y_offset)
+            
+            # Pen down for the spot
+            # d(f"G0 Z{zvalue}")
+
+            if random.randint(0, 10) == 0:
+                continue
+            # or laser on for the spot
+            d(f"G1")   
+            min_dwell = 0.01  
+            max_dwell = 0.4   
+            n_dwell = 5
+
+            dwell_time = random.choice(dwells)  # Randomly select a dwell time from the list
+            # Vary dwell time randome between 0.15 and 0.25
+            # dwell_time = min_dwell + (random.randint(0,10000) % n_dwell) * (max_dwell - min_dwell) / n_dwell  # Just an example variation
+            d(f"G4 P{dwell_time}")  # Dwell for 1 second (P is in seconds for most controllers)
+            # time.sleep(spot_duration)
+            
+            # Pen up
+            d("G0 Z0")
+    
+    # Return to origin at fast speed
     m(0, 0)
 
 def clock4(zvalue=7):
+    """
+    Measure the time it takes to draw a vertical line at a specified feed rate, and compute the ratio between actual time and theoretical time.
+
+    Conclusion:
+    the feed rate is just an estimation and it is 10-20% slower than the theoretical time.
+    """
+    import matplotlib.pyplot as plt
+
+
     init()
     results = {}
-    for feed_rate in range(800, 1200, 100):
+    # laser 800, feed 1200, the problem is at the end
+    laser_on(700)
+    for feed_rate in [500]:
         vals = []
         for x in range(0, 4):
             data = clock4_internal(x*7, 0, 0, feed_rate)
@@ -542,26 +608,22 @@ def clock4_internal(init_x = 0, init_y = 0, zvalue=7, threoretical_feed_rate=100
     """
     draw the longest possible vertical line, and measure the time it takes to draw it, then compute ratio between feed rate F and actual time.
     python -c "from live_plotter import clock4; clock4()" | gcode-cli -
+
+    clearly the maximum feed rate is 1200
     """
 
     line_length = 100  # mm - longest possible vertical line
 
     CORRECTION_RATIO = 1.2703992525736492 * 1.0364954471588135
-    CORRECTION_RATIO = 1
+    CORRECTION_RATIO = 1.1576432267824808
     test_feed_rate = threoretical_feed_rate * CORRECTION_RATIO  # mm/min - test feed rate
     
 
     # Calculate theoretical time: time = distance / (speed/60)
     theoretical_time = (line_length / threoretical_feed_rate) * 60  # in seconds
     
-    print(f";Drawing {line_length}mm line at F{test_feed_rate}")
-    print(f";Theoretical time: {theoretical_time:.2f} seconds")
-    
-    # Fast movement speed
-    rapid_speed = 5000
     
     # Move to starting position
-    d(f"F{rapid_speed}")
     m(init_x, init_y)
     
     # Set test feed rate
@@ -573,6 +635,8 @@ def clock4_internal(init_x = 0, init_y = 0, zvalue=7, threoretical_feed_rate=100
     start_time = time.time()
     
     # draw vertical line
+    d(f"G01 X{init_x}")
+    d(f"G4 P1")
     d(f"G01 X{init_x} Y{line_length}")
     
     
@@ -605,13 +669,14 @@ def clock4_internal(init_x = 0, init_y = 0, zvalue=7, threoretical_feed_rate=100
     }
 
 
+    print(f";Drawing {line_length}mm line at F{test_feed_rate}")
+    print(f";Theoretical time: {theoretical_time:.2f} seconds")
     print(f";Actual time: {actual_time:.2f} seconds")
     print(f";Theoretical Feed rate: {data['theoretical_feed_rate']} mm/min")
     print(f";Effective feed rate: {data['effective_feed_rate']} mm/min")
     print(f";Ratio (actual/theoretical): {data['ratio']:.4f}")
     
     # Return to origin
-    d(f"F{rapid_speed}")
     m(init_x, init_y)
     
 
@@ -637,8 +702,6 @@ def clock3(num_lines = 10, zvalue=7):
     # F is in mm/min, so F = line_length * 60
     draw_speed = line_length * 60  # mm/min
     
-    # Fast movement speed between lines
-    rapid_speed = 5000
     
     for i in range(num_lines):
         # Position for this line (stacked vertically)
@@ -647,7 +710,6 @@ def clock3(num_lines = 10, zvalue=7):
         x_end = line_length
         
         # Move quickly to starting position (pen up)
-        d(f"F{rapid_speed}")
         m(x_start, y_position)
         
         # Set drawing speed for this line (to take 1 second)
@@ -661,7 +723,6 @@ def clock3(num_lines = 10, zvalue=7):
         d("G0 Z0")
     
     # Return to origin at fast speed
-    d(f"F{rapid_speed}")
     m(0, 0)
 
 def clock1(zvalue=7):
@@ -682,8 +743,6 @@ def clock1(zvalue=7):
     # F is in mm/min, so for 1 second we need: perimeter * 60 mm/min
     draw_speed = perimeter * 60  # This will make each square take 1 second
     
-    # Fast movement speed between squares
-    rapid_speed = 5000
     
     for i in range(num_squares):
         # Position for this square (arrange in a row)
@@ -691,7 +750,6 @@ def clock1(zvalue=7):
         y_offset = 0
         
         # Move quickly to starting position (pen up)
-        d(f"F{rapid_speed}")
         m(x_offset, y_offset)
         
         # Set drawing speed for this square (to take 1 second)
@@ -708,7 +766,6 @@ def clock1(zvalue=7):
         ])
     
     # Return to origin at fast speed
-    d(f"F{rapid_speed}")
     m(0, 0)
 
 
