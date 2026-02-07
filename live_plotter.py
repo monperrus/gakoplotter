@@ -265,7 +265,22 @@ def plotFile(filename):
         image = image.transpose(PIL.Image.FLIP_TOP_BOTTOM)
         image.show()
 
+def repl():
+    """
+    get python statements as input and execute them, until "exit" is entered
+    """
+    init()
+    while True:
+        try:
+            stmt = input(">>> ")
+            if stmt.strip() == "exit":
+                break
+            exec(stmt)
+        except Exception as e:
+            print(f"Error: {e}")
+
 def foo():
     print("s")
 if __name__ == '__main__':
-    plotFile(sys.argv[1])
+    repl()
+    # plotFile(sys.argv[1])

@@ -20,10 +20,13 @@ import sys, tty, termios
 import random
 import os
 
+# fonts for https://gitlab.com/oskay/hershey-text/-/tree/Inkscape_v1/hershey-text/svg_fonts, cloned locally, see hershey-text/hershey-text/svg_fonts/
 # echo cache/*.svg.*
 # I have only two fonts for now
 FONT="HersheyScript1"
 FONT="EMSOsmotron"
+
+assert os.path.exists('cache/'+FONT+'.svg.d/'), f"Font directory not found: cache/{FONT}.svg.d/"
 
 SCALE=1
 
@@ -162,9 +165,14 @@ def typewrite_live():
   # print("G00 X"+str(x)+"Y"+str(y))
   goto_top()
 
-  for i in range(0,100000):
-    character = readchr()
-    print_char(character)
+  try:
+    for i in range(0,100000):
+      character = readchr()
+      if ord(character) == 3:  # Ctrl-C
+        break
+      print_char(character)
+  except KeyboardInterrupt:
+    pass
 
 
 def print_word(word):
