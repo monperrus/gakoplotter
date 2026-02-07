@@ -270,10 +270,12 @@ def m(x,y):
 def l(x,y):
     d_internal(["G0 Z5", "G01 X"+str(x)+ " Y"+str(y), "G0 Z0"])
 
-def laser_on(power=1000):
+def laser_on(power=100, speed=420   ):
     """Turns the laser on with the specified power (default 1000)."""
-    # 300 for simple paper still cuts
-    d_internal([f"M3 S{power}", "F400"])
+    # 1000 / 300 for simple paper still cuts
+    # 1000 / 400 cuts well normal paper
+    # not that it first warm up
+    d_internal([f"M3 S{power}", f"F{speed}"])
 
 def laser_off():
     """Turns the laser off."""
@@ -354,6 +356,8 @@ def repl():
                 query_position()
                 continue
             if stmt.strip():
+                if "(" not in stmt and ")" not in stmt:
+                    stmt += "()"
                 exec(stmt)
                 # Save history after each successful command
                 readline.set_history_length(1000)
@@ -365,6 +369,20 @@ def repl():
 
 def foo():
     print("s")
+
+def laser_test():
+    laser_on(600)
+    # 10 it warms up
+    for i in range(8,4,-1):
+        speed = 100 + i * 50  # Variable speed from 100 to 550
+        d(f"F{speed}")
+        size = 10
+        x_offset = i * (size + 2)
+        m(x_offset, 0)
+        q(size)
+
+
+    laser_off()
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--socket", help="Socket address (host:port or path)")
