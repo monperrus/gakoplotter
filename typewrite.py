@@ -4,7 +4,7 @@ penplotter as typewriter
 
 uses g-code parsing
 
-usage: python -u typewrite.py | gcode-cli -
+usage: stdbuf -i0 -o0 -e0  python -u typewrite.py | gcode-cli -
 
 
 could also be done using ./hf2gcode --no-post --no-pre "a" directly
@@ -138,9 +138,11 @@ def print_char(character):
     goto_top()
   else:
     print("; ",character)
-    print(letter(character,x,y))
-    #x+=10
-    x+=width_letter(character)*SCALE
+    letter_code = letter(character,x,y)
+    if letter_code:
+      print(letter_code)
+      #x+=10
+      x+=width_letter(character)*SCALE
 
 def goto_origin():
   global x,y
@@ -158,6 +160,21 @@ def goto(_x,_y):
   x=_x
   y=_y
   print("G00 X"+str(_x)+"Y"+str(_y))
+
+def query_position():
+  """Query the current position using M114 g-code command.
+  
+  Returns the internal position state (x, y) and sends M114 command
+  to query the actual machine position.
+  
+  Usage:
+    query_position()
+  """
+  global x, y
+  print("? ; Query current position")
+  # to parse the output I need to have the socket and read from it
+  print(f"; Internal state: X={x} Y={y}")
+  return (x, y)
   
 def typewrite_live():
   global x,y
@@ -170,7 +187,17 @@ def typewrite_live():
       character = readchr()
       if ord(character) == 3:  # Ctrl-C
         break
+      if ord(character) == 0x1b:  # ESC key - start of escape sequence
+        # Read the next two characters to get the full F-key sequence
+        next_ch = readchr()
+        print(f"; ESC sequence: {next_ch}")
+        if next_ch == 'O':  # F1-F4 use ESC O sequence
+            final_ch = readchr()
+            if final_ch == 'P':  # F1
+                query_position()
+            continue
       print_char(character)
+      query_position()
   except KeyboardInterrupt:
     pass
 
