@@ -189,7 +189,14 @@ def init():
     state= ( 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0)
 
     draw = ImageDraw.Draw(image)
-    d_internal(["G21", "G17", "G90", "F2000", "G00 X0 Y0", "G00 Z0"])
+    d_internal([
+        "G21 ; Set units to millimeters",
+        "G17 ; Select XY plane for arc movements",
+        "G90 ; Use absolute positioning",
+        "F2000 ; Set feed rate to 2000 mm/min",
+        "G00 X0 Y0 ; Rapid move to origin (X=0, Y=0)",
+        "G00 Z0 ; Rapid move Z to 0",
+    ])
 
 
 
@@ -262,6 +269,15 @@ def m(x,y):
 
 def l(x,y):
     d_internal(["G0 Z5", "G01 X"+str(x)+ " Y"+str(y), "G0 Z0"])
+
+def laser_on(power=1000):
+    """Turns the laser on with the specified power (default 1000)."""
+    # 300 for simple paper still cuts
+    d_internal([f"M3 S{power}", "F400"])
+
+def laser_off():
+    """Turns the laser off."""
+    d_internal(["M5"])
 
 def query_position():
     """Query the current position using ? g-code command.
