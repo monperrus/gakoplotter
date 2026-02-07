@@ -1,0 +1,9 @@
+begin: |
+  ; start letter
+end: |
+  G0Z0 ; pen up
+  ; end letter
+toolon: |
+  G0Z6.3 ; pen down on paper
+tooloff: |
+  G0Z0 ; pen up
