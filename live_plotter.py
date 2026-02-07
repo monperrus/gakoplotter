@@ -27,6 +27,8 @@ import sys
 import socket
 import importlib
 import argparse
+import readline
+import rlcompleter
 
 
 def gcode2dict(filename):
@@ -115,7 +117,6 @@ def dict2image_internal(gCodeDict, draw, linewidth, posX, posY,posZ,i,j,k,g):
     scalerZcolor = 51
 
     for l in  gCodeDict:
-        print("foo",l)
         for key, value in l.items():
             if key =="X":
                 l[key]= (value + offsetX)* scaler
@@ -211,7 +212,7 @@ def connect(address):
 
 def d_internal(ls): 
     global draw,linewidth,image, state
-    print("state",state)
+    # print("state",state)
     posX, posY,posZ,i,j,k,g = state
     state = dict2image_internal(gcode2dict_internal(ls),draw, linewidth, posX, posY,posZ,i,j,k,g)
     #image.show()
@@ -312,13 +313,35 @@ def repl():
     """
     get python statements as input and execute them, until "exit" is entered
     """
+    history_file = os.path.expanduser("~/.live_plotter_history")
+    try:
+        readline.read_history_file(history_file)
+    except FileNotFoundError:
+        pass
+
+    # Enable tab completion
+    readline.set_completer(rlcompleter.Completer(globals()).complete)
+    if 'libedit' in readline.__doc__:
+        readline.parse_and_bind("bind ^I rl_complete")
+    else:
+        readline.parse_and_bind("tab: complete")
+
     init()
     while True:
         try:
             stmt = input(">>> ")
             if stmt.strip() == "exit":
                 break
-            exec(stmt)
+            if stmt.strip() == "?":
+                query_position()
+                continue
+            if stmt.strip():
+                exec(stmt)
+                # Save history after each successful command
+                readline.set_history_length(1000)
+                readline.write_history_file(history_file)
+        except EOFError:
+            break
         except Exception as e:
             print(f"Error: {e}")
 
